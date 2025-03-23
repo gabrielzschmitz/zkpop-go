@@ -1,5 +1,5 @@
-#ifndef ZKPOP__H
-#define ZKPOP__H
+#ifndef API_KYBER_ZKPOP__H
+#define API_KYBER_ZKPOP__H
 
 #include <stdint.h>
 #include "params.h"

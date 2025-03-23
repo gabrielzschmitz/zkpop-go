@@ -1,6 +1,7 @@
 // main.go
 package main
 
+
 /*
 #cgo CFLAGS: -I/home/<SEULOCAL>/zkpop-go/external/KEM-NIZKPoP/frodo-zkpop/frodo640/ -I/home/<SEULOCAL>/zkpop-go/external/KEM-NIZKPoP/kyber-zkpop/avx2/ -I/usr/include/ 
 #cgo LDFLAGS: -L/home/<SEULOCAL>/zkpop-go/external/KEM-NIZKPoP/frodo-zkpop/frodo640/ -L/home/<SEULOCAL>/zkpop-go/external/KEM-NIZKPoP/kyber-zkpop/avx2/ -L/usr/lib/ -lfrodo -lpqcrystals_kyber512_avx2 -lpqcrystals_aes256ctr_avx2 -lpqcrystals_fips202_ref -lpqcrystals_fips202x4_avx2 -lssl -lcrypto 
@@ -86,14 +87,31 @@ func testFrodoKEMNIZKPoP(N int){
 }
 
 //test Kyber512-NIZKPoP in N+1 iterations
-/*func testKyberNIZKPoP(N int){
+func testKyberNIZKPoP(N int){
+	fmt.Println("Testing Kyber512-NIZKPoP...")
 	//warmup
-        _, _, _, err := zkpop.KeyPairKyber512NIZKPoP()
+        pk, _, zkpopProof, err := zkpop.KeyPairKyber512NIZKPoP()
         if err != nil {
                 log.Fatalf("Error generating keypair: %v", err)
         }
 
-}*/
+	//test N keygens
+        for i := 0; i < N; i++  {
+                pk, _, zkpopProof, err = zkpop.KeyPairKyber512NIZKPoP()
+        }
+        //warmup
+        valid := zkpop.VerifyKyber512ZKPop(pk, zkpopProof)
+        if !valid {
+                log.Fatalf("Error verifying ZKPoP: %v", err)
+        }
+
+	//test N verifications
+        for i := 0; i < N; i++  {
+                valid = zkpop.VerifyKyber512ZKPop(pk, zkpopProof) 
+        }
+
+
+}
 
 func testKyber(N int){
 	fmt.Println("Testing Kyber...")
@@ -142,7 +160,7 @@ func main() {
 
 	//Kyber
 	testKyber(N)
-	//testKyberNIZKPoP(N)
+	testKyberNIZKPoP(N)
 
 	fmt.Println("End of testing.")
 }

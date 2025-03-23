@@ -1,11 +1,17 @@
 # zkpop-go
 
-`zkpop-go` is a Go wrapper around the `libzkpop` library from the
+`zkpop-go` is a Go wrapper around the 
 [KEM-NIZKPoP](https://github.com/Chair-for-Security-Engineering/KEM-NIZKPoP)
 project. It provides functions to generate keypairs, create Zero-Knowledge
 Proofs of Possession (ZKPoP), and verify proofs.
 
 ## Getting Started
+
+### Supported algorithms
+
+Currently, our binding supports functions like Keygen, Keygen-zkpop, Encaps, Decaps, and Verify-zkpop for:
+- Kyber512_avx2; and
+- FrodoKEM-640.
 
 ### Prerequisites
 
@@ -16,7 +22,6 @@ Ensure you have the following installed on your system:
   sudo apt install libssl-dev
   ```
 - Go programming language (version 1.15+ recommended).
-- CMake for building the external library.
 
 ### Clone the Repository
 
@@ -35,52 +40,54 @@ git submodule update --init --recursive
 
 ### Build the External Library
 
-The Go wrapper depends on the `libzkpop.a` static library, which needs to be
-built from the KEM-NIZKPoP project.
+1. Frodo-KEM
+To build the library, navigate to `external/KEM-NIZKPoP/frodo-zkpop/`:
 
-To build the library:
+`make clean && make OPT_LEVEL=FAST USE_OPENSSL=FALSE GENERATION_A=SHAKE128 ZKPOP_N=65536 ZKPOP_TAU=8 && frodo640/test_KEM`
 
-1. Navigate to the project root directory:
-   ```bash
-   cd zkpop-go
-   ```
-2. Run the following commands to create the build directory, configure the build, and compile the library:
-   ```bash
-   mkdir build
-   cd build
-   cmake ..
-   make
-   ```
+If you are going to use openssl, just do a `make` instead.
 
-This will generate `libzkpop.a` inside `build/lib/`.
+2. Kyber
+
+It was tricky to make the binding work for kyber; You will need to:
+
+- navigate to `/KEM-NIZKPoP/kyber-zkpop/avx2/` (In a hope that you have avx2 instructions!)
+- change the Makefile using some editor:
+```
+#Comment the rule libpqcrystals_kyber512_avx2.so (below)
+#libpqcrystals_kyber512_avx2.so: $(SOURCES) $(HEADERS) symmetric-shake.c
+#        $(CC) -shared -fpic $(CFLAGS) -DKYBER_K=2 $(SOURCES) \
+#          symmetric-shake.c -o libpqcrystals_kyber512_avx2.so
+#and replace with
+libpqcrystals_kyber512_avx2.so: $(SOURCES) $(HEADERS) symmetric-shake.c
+        $(CC) -shared -fpic $(CFLAGS) -Wl,--allow-multiple-definition -DKYBER_K=2 $(SOURCES) \
+          symmetric-shake.c zkpop.c zkpop.h  -o libpqcrystals_kyber512_avx2.so 
+
+```
+which actually do a export for zkpop symbols to kyber512_avx2.so library.
+- compile with `make shared`
+- It should generate a lot of `.so` files; you should copy them with `sudo cp *.so /usr/lib/`.
+- If you want, check with `nm -D libpqcrystals_kyber512_avx2.so` whether `pqcrystals_kyber512_avx2_crypto_kem_keypair_nizkpop` is actually there. If not, the change in the Makefile was not effective (maybe `make clean && make shared`  can help).
+
 
 ### Build the Go Project
 
-Once the library is built, you can compile the Go project and link it to the
-required libraries (OpenSSL and `libzkpop.a`):
+Before building the project, you need to change `main.go` because (sadly!) `CFLAGS` and `LDFLAGS` contains absolute paths. Change it to your path.
+
+Now you can build the project (navigate to `zkpop-go/` directory):
 
 ```bash
-CGO_CFLAGS="-mavx2 -maes -mbmi2 -O3 -I/usr/include/openssl" \
-CGO_LDFLAGS="-L/usr/lib/x86_64-linux-gnu -lssl -lcrypto" \
-go build -o zkpop
+go build -o zkpop`
 ```
 
-### Run the Test
-
-After building, you can run the main test file (`main.go`) to verify the
-implementation:
+### Execution
 
 ```bash
 ./zkpop
 ```
 
-### Notes
-- Ensure you have the appropriate AVX2, AES, and BMI2 support on your system’s
-  CPU.
-- Modify the OpenSSL paths in `CGO_CFLAGS` and `CGO_LDFLAGS` if your
-  installation differs.
-- The compilation still not fully complete and need further investigation to
-  include all necessary dependencies!
+it should execute 10 times for each Frodo640 and Kyber512 operations.
+
 
 ## License
 
